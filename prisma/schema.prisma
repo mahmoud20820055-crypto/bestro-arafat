@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Category {
+  id     Int     @id @default(autoincrement())
+  name   String
+  note   String?
+  sort   Int     @default(0)
+  active Boolean @default(true)
+  items  Item[]
+}
+
+model Item {
+  id          Int       @id @default(autoincrement())
+  categoryId  Int
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  /// null = سعر حسب اليوم، ما بينطلب أونلاين
+  price       Int?
+  imageId     String?
+  available   Boolean   @default(true)
+  featured    Boolean   @default(false)
+  sort        Int       @default(0)
+  variants    Variant[]
+  createdAt   DateTime  @default(now())
+}
+
+model Variant {
+  id     Int    @id @default(autoincrement())
+  itemId Int
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  name   String
+  price  Int
+  sort   Int    @default(0)
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  mime      String
+  data      Bytes
+  /// receipts are private: only admins can open them
+  isPrivate Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum OrderType {
+  DELIVERY
+  PICKUP
+}
+
+enum PaymentMethod {
+  WALLET
+  AT_PICKUP
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum OrderStatus {
+  NEW
+  ACCEPTED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id            Int           @id @default(autoincrement())
+  token         String        @unique
+  customerName  String
+  phone         String
+  type          OrderType
+  area          String?
+  address       String?
+  notes         String?
+  payment       PaymentMethod
+  paymentStatus PaymentStatus @default(PENDING)
+  receiptId     String?
+  status        OrderStatus   @default(NEW)
+  cancelReason  String?
+  subtotal      Int
+  discount      Int           @default(0)
+  deliveryFee   Int           @default(0)
+  total         Int
+  couponCode    String?
+  history       Json          @default("[]")
+  items         OrderItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([phone])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemId    Int?
+  variantId Int?
+  name      String
+  variant   String?
+  unitPrice Int
+  qty       Int
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+model Coupon {
+  id          Int        @id @default(autoincrement())
+  code        String     @unique
+  type        CouponType
+  value       Int
+  minSubtotal Int        @default(0)
+  maxUses     Int?
+  uses        Int        @default(0)
+  expiresAt   DateTime?
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+}
+
+model Setting {
+  id           Int     @id @default(1)
+  isOpen       Boolean @default(true)
+  deliveryFee  Int     @default(10)
+  minOrder     Int     @default(0)
+  prepMinutes  Int     @default(30)
+  walletInfo   String  @default("")
+  phones       String  @default("0593221010 - 0593441010")
+  whatsapp     String  @default("970593221010")
+  address      String  @default("غزة - شارع النصر - مقابل مخبز العائلات")
+  hours        String  @default("")
+  instagram    String  @default("https://www.instagram.com/bistro_arafat")
+  announcement String  @default("")
+}
+
+model Admin {
+  id           Int    @id @default(autoincrement())
+  username     String @unique
+  name         String
+  passwordHash String
+}
